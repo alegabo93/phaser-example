@@ -1,7 +1,7 @@
 var game;
 
 var gameOptions = {
-  timeLimit: 10,
+  timeLimit: 100,
   gravity: 2000,
   crateSpeed: 500,
   crateHorizontalRange: 540,
@@ -48,8 +48,13 @@ playGame.prototype = {
 
     game.load.image("background", "assets/sprites/bg.png");
     game.load.image("logo", "assets/sprites/logo.png");
-    game.load.image("audio", "assets/sprites/audio.png");
+    game.load.image("sound", "assets/sprites/sound.png");
     game.load.image("play-button", "assets/sprites/play-button.png");
+    game.load.image("bottle-1", "assets/sprites/bottle-1.png");
+    game.load.image("bottle-2", "assets/sprites/bottle-2.png");
+    game.load.image("mango", "assets/sprites/mango.png");
+    game.load.image("jamaica", "assets/sprites/jamaica.png");
+    game.load.spritesheet("fruit", "assets/sprites/fruit.png", 80, 88);
 
     game.load.audio("bgsound", ["assets/sounds/whistle.mp3"]);
 
@@ -117,6 +122,7 @@ playGame.prototype = {
     ground.body.static = true;
     ground.body.setCollisionCategory(1);
     this.cameraGroup.add(ground);
+
     game.input.onDown.add(this.dropCrate, this);
 
     // Main Menu Group
@@ -156,20 +162,40 @@ playGame.prototype = {
     hiScore.anchor.set(0.5);
     this.menuGroup.add(hiScore);
 
+    // this.physics.startSystem(Phaser.Physics.ARCADE);
+    // brick = this.add.sprite(100, 100, "crate");
+
+    // this.physics.enable(brick,Phaser.Physics.ARCADE);
+    // brick.body.gravity.y = 50;
+
 
     // var tapTween = game.add.tween(tap).to({
     //   alpha: 0
     // }, 650, Phaser.Easing.Cubic.InOut, true, 0, -1, true);
+    this.fruitGroup = game.add.group();
+    game.physics.startSystem(Phaser.Physics.ARCADE);
+    game.physics.arcade.gravity.y = 150;
+
   },
 
   dropCrate: function(){
-
     if(this.firstCrate){
       // Audio Button
-      var audioButton = game.add.button(game.width - 200, 10, 'audio', this.toggleMusic, this, 2, 1, 0);
+      var audioButton = game.add.button(game.width - 110, 15, 'sound', this.toggleMusic, this, 2, 1, 0);
       this.controlsGroup = game.add.group();
       this.controlsGroup.add(audioButton);
       music.play();
+
+
+      var bottle1 = game.add.sprite(70, game.height, "bottle-1");
+      bottle1.y = game.height - bottle1.height;
+      bottle1.x = game.width/2 - bottle1.width - 60;
+
+      var bottle2 = game.add.sprite(70, game.height, "bottle-2");
+      bottle2.y = game.height - bottle2.height;
+      bottle2.x = game.width/2 - bottle2.width + 120;
+
+      game.time.events.loop(3000, this.createFruit, this);
 
       this.firstCrate = false;
       this.menuGroup.destroy();
@@ -211,6 +237,52 @@ playGame.prototype = {
         i.destroy();
       }
     }, this);
+
+    this.fruitGroup.forEach(function(fruit) {
+      fruit.angle += fruit.rotateMe;
+    });
+  },
+  createFruit: function() {
+    // Randomize first fruit
+    var fruitType = Math.floor(Math.random()*2);
+
+    // Create first fruit
+    var firstFruit = game.add.sprite(190, 200, 'fruit');
+    firstFruit.animations.add('anim', [fruitType], 10, true);
+    firstFruit.animations.play('anim');
+
+    // Create second fruit, opposite to second fruit
+    var secondFruitType = fruitType === 1 ? 0 : 1;
+    var secondFruit = game.add.sprite(400, 0, 'fruit');
+    secondFruit.animations.add('anim', [secondFruitType], 10, true);
+    secondFruit.animations.play('anim');
+
+    // Enable physics on both fruits
+    game.physics.enable(firstFruit, Phaser.Physics.ARCADE);
+    game.physics.enable(secondFruit, Phaser.Physics.ARCADE);
+
+    // set the anchor (for rotation) to the middle of each item
+    firstFruit.anchor.setTo(0.5, 0.5);
+    secondFruit.anchor.setTo(0.5, 0.5);
+
+    // Set random rotation value
+    firstFruit.rotateMe = (Math.random()*4)-2;
+    secondFruit.rotateMe = (Math.random()*4)-2;
+
+    firstFruit.body.collideWorldBounds = true;
+    secondFruit.body.collideWorldBounds = true;
+
+    // Add them to the same group
+    this.fruitGroup.add(firstFruit);
+    this.fruitGroup.add(secondFruit);
+  },
+  spawnFruit: function() {
+    console.log('spawn');
+    var dropPos = Math.floor(Math.random()*game.width);
+    var mango = game.add.sprite(dropPos, 0, 'mango');
+    game.physics.enable(mango, Phaser.Physics.ARCADE);
+    this.fruitGroup.add(mango);
+
   },
   scaleCamera: function(cameraScale){
     var moveTween = game.add.tween(this.cameraGroup).to({
