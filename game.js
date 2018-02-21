@@ -8,7 +8,9 @@ var gameOptions = {
   fallingHeight: 700,
   localStorageName: "stackthecratesgame",
   gameWidth: 640,
-  gameHeight: 960
+  gameHeight: 960,
+  firstXPosition: 200,
+  secondXPosition: 440
 }
 
 var GROUNDHEIGHT;
@@ -48,12 +50,14 @@ playGame.prototype = {
 
     game.load.image("background", "assets/sprites/bg.png");
     game.load.image("logo", "assets/sprites/logo.png");
-    game.load.image("sound", "assets/sprites/sound.png");
     game.load.image("play-button", "assets/sprites/play-button.png");
     game.load.image("bottle-1", "assets/sprites/bottle-1.png");
     game.load.image("bottle-2", "assets/sprites/bottle-2.png");
     game.load.image("mango", "assets/sprites/mango.png");
     game.load.image("jamaica", "assets/sprites/jamaica.png");
+    game.load.image("platform", "assets/sprites/platform.jpg");
+
+    game.load.spritesheet("sound", "assets/sprites/sound.png", 64, 54);
     game.load.spritesheet("fruit", "assets/sprites/fruit.png", 80, 88);
 
     game.load.audio("bgsound", ["assets/sounds/whistle.mp3"]);
@@ -94,8 +98,7 @@ playGame.prototype = {
     this.gameOverSound = game.add.audio("gameover");
     this.removeSound = game.add.audio("remove");
     this.score = 0;
-    GROUNDHEIGHT = game.cache.getImage("ground").height;
-    CRATEHEIGHT = game.cache.getImage("crate").height;
+
     this.firstCrate = true;
 
     // Set background sprite
@@ -107,23 +110,22 @@ playGame.prototype = {
     this.crateGroup = game.add.group();
     this.cameraGroup.add(this.crateGroup);
     game.physics.startSystem(Phaser.Physics.BOX2D);
-    game.physics.box2d.gravity.y = gameOptions.gravity;
     this.canDrop = true;
-    var ground = game.add.sprite(game.width / 2, game.height, "ground");
-    ground.y = game.height - ground.height / 2;
-    this.movingCrate = game.add.sprite((game.width - gameOptions.crateHorizontalRange) / 2 ,  game.height - GROUNDHEIGHT - gameOptions.fallingHeight, "crate");
-    this.movingCrate.anchor.set(0.5);
-    this.cameraGroup.add(this.movingCrate);
-    var crateTween = game.add.tween(this.movingCrate).to({
-      x: (game.width + gameOptions.crateHorizontalRange) / 2
-    }, gameOptions.crateSpeed, Phaser.Easing.Linear.None, true, 0, -1, true);
-    game.physics.box2d.enable(ground);
-    ground.body.friction = 1;
-    ground.body.static = true;
-    ground.body.setCollisionCategory(1);
-    this.cameraGroup.add(ground);
 
-    game.input.onDown.add(this.dropCrate, this);
+    var platform = game.add.sprite(game.width/2, game.height, "platform");
+    platform.y = game.height - platform.height / 2;
+
+
+
+    game.physics.box2d.enable(platform);
+    platform.body.friction = 1;
+    platform.body.static = true;
+    platform.body.setCollisionCategory(1);
+
+
+    //game.input.onDown.add(this.dropCrate, this);
+
+    game.input.onDown.add(this.swipeBottles, this);
 
     // Main Menu Group
 
@@ -154,14 +156,6 @@ playGame.prototype = {
     var readyButton = game.add.button(0, game.height / 2 + 40, 'play-button', this.dropCrate, this, 2, 1, 0);
     this.menuGroup.add(readyButton);
 
-    // High Score
-    var hiScoreText = game.add.bitmapText(game.width / 2, game.height - 74, "smallfont", "BEST SCORE", 24);
-    hiScoreText.anchor.set(0.5);
-    this.menuGroup.add(hiScoreText);
-    var hiScore = game.add.bitmapText(game.width / 2, game.height - 20, "font", this.savedData.score.toString(), 72);
-    hiScore.anchor.set(0.5);
-    this.menuGroup.add(hiScore);
-
     // this.physics.startSystem(Phaser.Physics.ARCADE);
     // brick = this.add.sprite(100, 100, "crate");
 
@@ -169,31 +163,49 @@ playGame.prototype = {
     // brick.body.gravity.y = 50;
 
 
-    // var tapTween = game.add.tween(tap).to({
-    //   alpha: 0
-    // }, 650, Phaser.Easing.Cubic.InOut, true, 0, -1, true);
-    this.fruitGroup = game.add.group();
     game.physics.startSystem(Phaser.Physics.ARCADE);
-    game.physics.arcade.gravity.y = 150;
 
+    this.fruitGroup = game.add.group();
+    this.fruitGroup.enableBody = true;
+
+    game.physics.arcade.enable(this.fruitGroup);
+
+    // Bottle 1
+    this.bottle1 = game.add.sprite(70, game.height, "bottle-1");
+    this.bottle1.y = game.height - 250;
+    this.bottle1.x = gameOptions.firstXPosition;
+    this.bottle1.anchor.set(0.5);
+
+    // Bottle 2
+    this.bottle2 = game.add.sprite(70, game.height, "bottle-2");
+    this.bottle2.y = game.height - 250;
+    this.bottle2.x = gameOptions.secondXPosition;
+    this.bottle2.anchor.set(0.5);
+
+    game.physics.enable([this.bottle1, this.bottle2], Phaser.Physics.ARCADE);
+    this.bottle1.body.immovable = false;
+    this.bottle2.body.immovable = false;
+
+    this.bottle1.animations.add('swipe');
+    this.bottle1.animations.play('swipe', 10, true);
+
+    game.physics.enable(this.fruitGroup, Phaser.Physics.ARCADE);
+
+
+    this.counter = 0;
+    this.counterGoods = 0;
+    this.counterBads = 0;
   },
 
   dropCrate: function(){
     if(this.firstCrate){
       // Audio Button
-      var audioButton = game.add.button(game.width - 110, 15, 'sound', this.toggleMusic, this, 2, 1, 0);
+      this.audioButton = game.add.button(game.width - 110, 35, 'sound', this.toggleMusic, this, 1, 0, 2);
+      this.audioButton.anchor.setTo(0.5, 0.5);
       this.controlsGroup = game.add.group();
-      this.controlsGroup.add(audioButton);
-      music.play();
-
-
-      var bottle1 = game.add.sprite(70, game.height, "bottle-1");
-      bottle1.y = game.height - bottle1.height;
-      bottle1.x = game.width/2 - bottle1.width - 60;
-
-      var bottle2 = game.add.sprite(70, game.height, "bottle-2");
-      bottle2.y = game.height - bottle2.height;
-      bottle2.x = game.width/2 - bottle2.width + 120;
+      this.controlsGroup.add(this.audioButton);
+      //music.play();
+      // remove comment later
 
       game.time.events.loop(3000, this.createFruit, this);
 
@@ -206,7 +218,6 @@ playGame.prototype = {
     }
     if(this.canDrop && this.timer <= gameOptions.timeLimit){
       this.canDrop = false;
-      this.movingCrate.alpha = 0;
       var fallingCrate = game.add.sprite(this.movingCrate.x, this.movingCrate.y, "crate");
       fallingCrate.hit = false;
       game.physics.box2d.enable(fallingCrate);
@@ -227,6 +238,7 @@ playGame.prototype = {
         }
       }, this);
     }
+
   },
   update: function(){
     this.crateGroup.forEach(function(i){
@@ -238,7 +250,12 @@ playGame.prototype = {
       }
     }, this);
 
+    game.physics.arcade.collide(this.fruitGroup);
+    game.physics.arcade.overlap(this.fruitGroup, [this.bottle1, this.bottle2], this.collectFruit, null, this);
+
+    // Rotate each fruit
     this.fruitGroup.forEach(function(fruit) {
+      fruit.body.gravity.y = 150;
       fruit.angle += fruit.rotateMe;
     });
   },
@@ -247,13 +264,13 @@ playGame.prototype = {
     var fruitType = Math.floor(Math.random()*2);
 
     // Create first fruit
-    var firstFruit = game.add.sprite(190, 200, 'fruit');
+    var firstFruit = game.add.sprite(gameOptions.firstXPosition, 200, 'fruit');
     firstFruit.animations.add('anim', [fruitType], 10, true);
     firstFruit.animations.play('anim');
 
     // Create second fruit, opposite to second fruit
     var secondFruitType = fruitType === 1 ? 0 : 1;
-    var secondFruit = game.add.sprite(400, 0, 'fruit');
+    var secondFruit = game.add.sprite(gameOptions.secondXPosition, 0, 'fruit');
     secondFruit.animations.add('anim', [secondFruitType], 10, true);
     secondFruit.animations.play('anim');
 
@@ -266,8 +283,8 @@ playGame.prototype = {
     secondFruit.anchor.setTo(0.5, 0.5);
 
     // Set random rotation value
-    firstFruit.rotateMe = (Math.random()*4)-2;
-    secondFruit.rotateMe = (Math.random()*4)-2;
+    firstFruit.rotateMe = (Math.random()*1)-1;
+    secondFruit.rotateMe = (Math.random()*1)-1;
 
     firstFruit.body.collideWorldBounds = true;
     secondFruit.body.collideWorldBounds = true;
@@ -358,9 +375,39 @@ playGame.prototype = {
   toggleMusic: function () {
     if (music.isPlaying) {
       music.pause();
+      this.audioButton.setFrames(1);
     } else {
       music.play();
+      this.audioButton.setFrames(2);
     }
-  }
+  },
+  collectFruit: function(bottle, fruit) {
+    //console.log('FRUTA QUE', fruit.animations.currentFrame.index);
+    //console.log('BOTTELLA', bottle.key);
+    var collapsedFruit = fruit.animations.currentFrame.index;
+    var collapsedBottle = bottle.key;
 
+    if(
+       (collapsedFruit === 1 && collapsedBottle === 'bottle-1') ||
+       (collapsedFruit === 0 && collapsedBottle === 'bottle-2')
+      ){
+      this.counterGoods++;
+    } else {
+      this.counterBads++;
+    }
+    console.log('goods ', this.counterGoods);
+    console.log('bads ', this.counterBads);
+    fruit.kill();
+  },
+  swipeBottles: function() {
+    var posToMoveFirst = this.bottle1.x === gameOptions.firstXPosition ? gameOptions.secondXPosition : gameOptions.firstXPosition;
+    var posToMoveSecond = this.bottle2.x === gameOptions.secondXPosition ? gameOptions.firstXPosition : gameOptions.secondXPosition;
+    console.log(posToMoveSecond);
+
+    this.tweenBottle1 = game.add.tween(this.bottle1).to({x: posToMoveFirst}, 300, Phaser.Easing.Linear.None);
+    this.tweenBottle2 = game.add.tween(this.bottle2).to({x: posToMoveSecond}, 300, Phaser.Easing.Linear.None);
+
+    this.tweenBottle1.start();
+    this.tweenBottle2.start();
+  }
 }
