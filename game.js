@@ -196,11 +196,17 @@ playGame.prototype = {
     this.counterGoods = 0;
     this.counterBads = 0;
   },
-
+  setTime: function(actualTime) {
+    var minutes = Math.floor(actualTime/60);
+    var minutesText = minutes > 9 ? minutes : '0' + minutes;
+    var seconds = actualTime % 60;
+    var secondsText = seconds > 9 ? seconds : '0' + seconds;
+    return minutesText + ':' + secondsText;
+  },
   dropCrate: function(){
     if(this.firstCrate){
       // Audio Button
-      this.audioButton = game.add.button(game.width - 110, 35, 'sound', this.toggleMusic, this, 1, 0, 2);
+      this.audioButton = game.add.button(game.width - 80, 35, 'sound', this.toggleMusic, this, 1, 0, 2);
       this.audioButton.anchor.setTo(0.5, 0.5);
       this.controlsGroup = game.add.group();
       this.controlsGroup.add(this.audioButton);
@@ -213,8 +219,19 @@ playGame.prototype = {
       this.menuGroup.destroy();
       this.timer = 0;
       this.timerEvent = game.time.events.loop(Phaser.Timer.SECOND, this.tick, this);
-      this.timeText = game.add.bitmapText(game.width / 2 - 20, 10, "font", gameOptions.timeLimit.toString(), 72);
-      //this.timeText = game.add.text(game.width / 2 - 20, 10, "00:00", {font: "100px Arial", fill: "#fff"});
+
+      // Create time box shadow
+      var timeBoxShadow = game.add.graphics();
+      timeBoxShadow.beginFill(0x000000, 0.3);
+      timeBoxShadow.drawRoundedRect(game.width / 2 - 87, 3, 200, 80, 10);
+
+      // Create time box
+      var timeBox = game.add.graphics();
+      timeBox.beginFill(0xffffff);
+      timeBox.drawRoundedRect(game.width / 2 - 90, 0, 200, 80, 10);
+
+      // Add initial time text
+      this.timeText = game.add.text(game.width / 2 - 40, 15, this.setTime(gameOptions.timeLimit), { font: "bold 40px Arial", fill: "#1a2d70"});
     }
     if(this.canDrop && this.timer <= gameOptions.timeLimit){
       this.canDrop = false;
@@ -330,7 +347,7 @@ playGame.prototype = {
   },
   tick: function(){
     this.timer++;
-    this.timeText.text = (gameOptions.timeLimit - this.timer).toString()
+    this.timeText.text = this.setTime(gameOptions.timeLimit - this.timer);
     if(this.timer > gameOptions.timeLimit){
       game.time.events.remove(this.timerEvent);
       this.movingCrate.destroy();
